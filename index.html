@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>PWA Audio – Mini</title>
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="theme-color" content="#0b0b0b" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO5Wb6kAAAAASUVORK5CYII=" />
+  <style>
+    :root { font-family: system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans JP',sans-serif; }
+    body { margin:0; background:#0b0b0b; color:#e5e7eb; }
+    .mini {
+      position: fixed; left:0; right:0; bottom:0;
+      background:#121212; border-top:1px solid #222; padding:10px 12px;
+      display:grid; grid-template-columns: 1fr auto; gap:10px; align-items:center;
+    }
+    .title { font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    /* タイトル・マルquee（必要時のみ .marquee を付与） */
+    .title.marquee { overflow:unset; mask-image: linear-gradient(90deg, transparent, #000 12px, #000 calc(100% - 12px), transparent); }
+    .title.marquee span {
+      display:inline-block; padding-inline:12px; animation: scroll 12s linear infinite;
+    }
+    @keyframes scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+    .controls { display:flex; gap:10px; align-items:center; }
+    .btn { background:#1f2937; border:1px solid #2a2a2a; color:#e5e7eb; border-radius:12px; padding:8px 10px; }
+    .btn:active { transform: translateY(1px); }
+    .seek { width:100%; appearance:none; height:4px; border-radius:999px; background:#2a2a2a; }
+    .row { display:flex; gap:8px; align-items:center; }
+    .muted { color:#94a3b8; font-size:12px; }
+    .topbar { display:flex; gap:8px; align-items:center; justify-content:space-between; padding:10px; }
+    .toggles { display:flex; gap:8px; align-items:center; }
+    .sheet { position: fixed; inset:0; background:rgba(0,0,0,.5); display:none; }
+    .panel { position:absolute; left:0; right:0; bottom:0; max-height:70vh; overflow:auto; background:#0e0e0e; border-top-left-radius:16px; border-top-right-radius:16px; padding:12px; border-top:1px solid #222; }
+    .list { width:100%; height:40vh; background:#111; border:1px solid #222; border-radius:12px; color:#e5e7eb; }
+    @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <button id="openLib" class="btn">ライブラリ/PL</button>
+    <div class="toggles">
+      <button id="toggleRemain" class="btn" title="経過/残り切替">経過</button>
+      <button id="toggleMarquee" class="btn" title="タイトルスクロールON/OFF">スクロールOFF</button>
+      <span id="rateLabel" class="muted">1.0x</span>
+    </div>
+  </div>
+
+  <!-- ミニプレイヤー -->
+  <div class="mini">
+    <div>
+      <div id="title" class="title">（未選択）</div>
+      <input id="seek" class="seek" type="range" min="0" max="1" value="0" step="0.001" />
+      <div class="row" style="justify-content:space-between">
+        <span id="cur" class="muted">00:00</span>
+        <span id="dur" class="muted">00:00</span>
+      </div>
+    </div>
+    <div class="controls">
+      <button id="prev" class="btn">⏮</button>
+      <button id="play" class="btn">▶️</button>
+      <button id="next" class="btn">⏭</button>
+    </div>
+  </div>
+
+  <!-- 軽量ライブラリシート -->
+  <div id="sheet" class="sheet" aria-hidden="true">
+    <div class="panel">
+      <div class="row" style="justify-content:space-between; margin-bottom:8px">
+        <strong>ライブラリ & プレイリスト</strong>
+        <button id="closeLib" class="btn">閉じる</button>
+      </div>
+
+      <div class="row" style="margin-bottom:8px">
+        <select id="playlist" class="btn" style="flex:1"></select>
+        <button id="newPl" class="btn">＋新規</button>
+        <button id="renPl" class="btn">改名</button>
+        <button id="delPl" class="btn">削除</button>
+      </div>
+
+      <div class="row" style="margin-bottom:8px">
+        <input id="picker" type="file" accept="audio/*" multiple hidden />
+        <button id="import" class="btn">＋取り込み</button>
+        <select id="sort" class="btn">
+          <option value="nameAsc">名前A→Z</option>
+          <option value="addedDesc">新しい順</option>
+        </select>
+        <select id="rate" class="btn">
+          <option>0.75</option><option selected>1.0</option><option>1.25</option><option>1.5</option><option>2.0</option>
+        </select>
+      </div>
+
+      <select id="tracks" class="list" size="10"></select>
+      <div class="row" style="margin-top:8px; justify-content:flex-end">
+        <button id="up" class="btn">▲</button>
+        <button id="down" class="btn">▼</button>
+        <button id="rm" class="btn">🗑</button>
+        <button id="playSel" class="btn">この曲を再生</button>
+      </div>
+    </div>
+  </div>
+
+  <audio id="audio" preload="auto" playsinline></audio>
+  <script src="./app.js" type="module"></script>
+  <script> if ('serviceWorker' in navigator) addEventListener('load',()=>navigator.serviceWorker.register('./sw.js')); </script>
+</body>
+</html>
