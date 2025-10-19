@@ -84,7 +84,10 @@
 
       <div class="row" style="margin-bottom:8px">
         <input id="picker" type="file" accept="audio/*" multiple hidden />
-        <button id="import" class="btn">＋取り込み</button>
+        <!-- 既存の import ボタンを以下に置き換える -->
+       <label class="btn" style="position:relative; overflow:hidden; cursor:pointer;">＋取り込み
+         <input id="picker" type="file" accept="audio/*" multiple style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer;" />
+       </label>
         <select id="sort" class="btn">
           <option value="nameAsc">名前A→Z</option>
           <option value="addedDesc">新しい順</option>
