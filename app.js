@@ -210,9 +210,6 @@ async function playNext(delta){
   BTN.prev.addEventListener('click',()=>playNext(-1),{passive:true});
   BTN.next.addEventListener('click',()=>playNext(+1),{passive:true});
 
-const picker = document.getElementById('picker');
-const importBtn = document.getElementById('import');
-importBtn.addEventListener('click', () => picker.click());
 
 picker.addEventListener('change', async e => {
   if (!e.target.files.length) return;
