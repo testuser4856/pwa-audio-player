@@ -210,6 +210,19 @@ async function playNext(delta){
   BTN.prev.addEventListener('click',()=>playNext(-1),{passive:true});
   BTN.next.addEventListener('click',()=>playNext(+1),{passive:true});
 
+  const importBtn = document.getElementById('import');
+const picker = document.getElementById('picker');
+
+// ボタン → input をクリック（PC/iPhone両対応）
+importBtn.addEventListener('click', () => picker.click());
+
+// ファイル選択後の処理
+picker.addEventListener('change', async (e) => {
+  if (!e.target.files.length) return;
+  await importFiles(e.target.files);  // 既存の importFiles を使用
+  e.target.value = '';                 // 連続取り込み用にリセット
+});
+  
   // シーク
   let scrubbing=false;
   S.addEventListener('input',()=>{scrubbing=true; const t=(A.duration||0)*Number(S.value); CUR.textContent=mmss(t);},{passive:true});
