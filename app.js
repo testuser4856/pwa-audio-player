@@ -264,6 +264,60 @@ document.getElementById('exportTracks').addEventListener('click', async () => {
   a.download = 'tracks.json';
   a.click();
 });
+
+import JSZip from "jszip";
+
+// ZIP読み込みボタン
+document.getElementById("importZip").addEventListener("click", () => {
+  document.getElementById("zipInput").click();
+});
+
+document.getElementById("zipInput").addEventListener("change", async (e) => {
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+
+  const titleEl = document.getElementById('title');
+  const origTitle = titleEl.textContent;
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    titleEl.textContent = `読み込み中… ${i+1}/${files.length} : ${file.name}`;
+    
+    try {
+      const zip = await JSZip.loadAsync(file);
+
+      // JSZip内の全ファイルを順次展開
+      for (const [path, entry] of Object.entries(zip.files)) {
+        if (entry.dir) continue;
+
+        if (path.endsWith(".mp3")) {
+          const blob = await entry.async("blob");
+          const id = `${path}__${blob.size}`;
+          await put("tracks", { id, name: path, blob, addedAt: Date.now() });
+        } 
+        if (path.endsWith(".json")) {
+          const text = await entry.async("text");
+          const data = JSON.parse(text);
+
+          if (Array.isArray(data)) {
+            for (const pl of data) await put("playlists", pl);
+          } else {
+            await put("playlists", data);
+          }
+        }
+      }
+
+    } catch (err) {
+      console.error("ZIP読み込み失敗:", file.name, err);
+    }
+
+    await renderPlaylists();
+    await renderTracks();
+  }
+
+  titleEl.textContent = origTitle;
+  alert("全てのZIPを読み込みました！");
+});
   
   // シーク
   let scrubbing=false;
