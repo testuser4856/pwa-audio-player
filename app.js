@@ -210,6 +210,22 @@ async function playNext(delta){
   BTN.prev.addEventListener('click',()=>playNext(-1),{passive:true});
   BTN.next.addEventListener('click',()=>playNext(+1),{passive:true});
 
+import JSZip from "jszip";
+const zip = new JSZip();
+
+// 例：プレイリスト
+const playlists = [
+  { id: "pl_123", name: "All Tracks", trackIds: tracks.map(t=>`${t.name}__${t.size}`), createdAt: Date.now() }
+];
+zip.file("playlists.json", JSON.stringify(playlists));
+
+// さらに曲ファイルを追加
+for (const t of tracks) {
+  zip.file(`tracks/${t.name}`, t.blob);
+}
+
+const blob = await zip.generateAsync({ type: "blob" });
+saveAs(blob, "library_01.zip");
 
 picker.addEventListener('change', async e => {
   if (!e.target.files.length) return;
