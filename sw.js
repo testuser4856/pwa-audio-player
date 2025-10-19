@@ -1,4 +1,4 @@
-const VERSION='v11';
+const VERSION='v12';
 const CACHE=`pwa-audio-mini-${VERSION}`;
 const ASSETS=[
   './','./index.html','./app.js','./manifest.webmanifest',
