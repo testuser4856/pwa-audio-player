@@ -220,6 +220,21 @@ picker.addEventListener('change', async e => {
   e.target.value = '';
 });
 
+const pickerJSON = document.getElementById('pickerJSON');
+pickerJSON.addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  const arr = JSON.parse(text);
+  for (const t of arr) {
+    const blob = new Blob([new Uint8Array(t.blob)], { type: t.type });
+    await put('tracks', { id: t.id, name: t.name, type: t.type, blob });
+  }
+  await renderTracks(); // 既存関数で画面に反映
+  alert('曲を読み込みました！');
+});
+
+
 // 曲をJSONとして書き出す
 document.getElementById('exportTracks').addEventListener('click', async () => {
   const tracks = await all('tracks'); // all() は既存IndexedDB関数
