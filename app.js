@@ -210,16 +210,6 @@ async function playNext(delta){
   BTN.prev.addEventListener('click',()=>playNext(-1),{passive:true});
   BTN.next.addEventListener('click',()=>playNext(+1),{passive:true});
 
-const importBtn = document.getElementById('import');
-const picker = document.getElementById('picker');
-
-importBtn.addEventListener('click', () => picker.click());
-
-picker.addEventListener('change', async e => {
-  await importFiles(e.target.files);
-  e.target.value = '';
-});
-
   // シーク
   let scrubbing=false;
   S.addEventListener('input',()=>{scrubbing=true; const t=(A.duration||0)*Number(S.value); CUR.textContent=mmss(t);},{passive:true});
