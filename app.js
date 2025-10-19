@@ -210,17 +210,31 @@ async function playNext(delta){
   BTN.prev.addEventListener('click',()=>playNext(-1),{passive:true});
   BTN.next.addEventListener('click',()=>playNext(+1),{passive:true});
 
-  const importBtn = document.getElementById('import');
 const picker = document.getElementById('picker');
-
-// ボタン → input をクリック（PC/iPhone両対応）
+const importBtn = document.getElementById('import');
 importBtn.addEventListener('click', () => picker.click());
 
-// ファイル選択後の処理
-picker.addEventListener('change', async (e) => {
+picker.addEventListener('change', async e => {
   if (!e.target.files.length) return;
-  await importFiles(e.target.files);  // 既存の importFiles を使用
-  e.target.value = '';                 // 連続取り込み用にリセット
+  await importFiles(e.target.files); // 既存の importFiles() を使用
+  e.target.value = '';
+});
+
+// 曲をJSONとして書き出す
+document.getElementById('exportTracks').addEventListener('click', async () => {
+  const tracks = await all('tracks'); // all() は既存IndexedDB関数
+  const exportData = await Promise.all(tracks.map(async t => ({
+    id: t.id,
+    name: t.name,
+    type: t.type,
+    blob: Array.from(new Uint8Array(await t.blob.arrayBuffer()))
+  })));
+  const blob = new Blob([JSON.stringify(exportData)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'tracks.json';
+  a.click();
 });
   
   // シーク
