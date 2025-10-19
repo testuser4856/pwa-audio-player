@@ -210,6 +210,14 @@ async function playNext(delta){
   BTN.prev.addEventListener('click',()=>playNext(-1),{passive:true});
   BTN.next.addEventListener('click',()=>playNext(+1),{passive:true});
 
+  const picker = document.getElementById('picker');
+  
+  picker.addEventListener('change', async (e) => {
+      const files = e.target.files;
+      if (!files.length) return;
+          await importFiles(files);  // 既存の importFiles() を使用
+          e.target.value = '';       // 選択状態をリセット
+  });
   // シーク
   let scrubbing=false;
   S.addEventListener('input',()=>{scrubbing=true; const t=(A.duration||0)*Number(S.value); CUR.textContent=mmss(t);},{passive:true});
