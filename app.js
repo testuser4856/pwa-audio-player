@@ -173,8 +173,8 @@ async function deleteTrackEverywhere(id){
   }
 
   // 曲データ＆進捗を削除
-  await del('tracks', id).catch(()=>{});
-  await del('progress', id).catch(()=>{});
+  await del_('tracks', id).catch(()=>{});
+  await del_('progress', id).catch(()=>{});
 
   // 最後に再生していたIDならクリア
   const last = (await get('meta','last'))?.value;
