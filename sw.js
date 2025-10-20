@@ -1,4 +1,4 @@
-const VERSION='v2002';
+const VERSION='v2003';
 const CACHE=`pwa-audio-mini-${VERSION}`;
 const ASSETS=['./','./index.html','./app.js','./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png'];
 self.addEventListener('install',e=>{ e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS))); self.skipWaiting(); });
