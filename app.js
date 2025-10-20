@@ -178,8 +178,7 @@ let dbReadyPromise = (async () => {
     console.error('DB open failed', e);
     return false;
   }
-})();
-  
+ 
   // 設定復元
   const r=Number((await get('meta',META.RATE))?.value||'1'); A.playbackRate=r; rateSel.value=String(r); rateLabel.textContent=`${r.toFixed(2).replace(/\.00$/,'')}x`;
   const remain=(await get('meta',META.REMAIN))?.value===true; toggleRemain.textContent=remain?'残り':'経過';
@@ -221,7 +220,7 @@ let dbReadyPromise = (async () => {
 
   // 取り込み/並べ替え/PL操作
   importBtn.addEventListener('click', () => {
-    document.getElementById('picker').click(); // ここは同期で！
+    document.getElementById('').click(); // ここは同期で！
   }, { passive: true });
   
 // 画面右上のタイトル領域を簡易ログに使う
