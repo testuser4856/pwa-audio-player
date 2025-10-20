@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>PWA Audio – Debug Mini</title>
+  <title>PWA Audio – Stable</title>
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="theme-color" content="#0b0b0b" />
@@ -11,17 +11,17 @@
   <style>
     :root { font-family: system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans JP',sans-serif; }
     body { margin:0; background:#0b0b0b; color:#e5e7eb; }
-    .mini { position: fixed; left:0; right:0; bottom:0; background:#121212; border-top:1px solid #222; padding:10px 12px;
-            display:grid; grid-template-columns: 1fr auto; gap:10px; align-items:center; }
-    .title { font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .controls { display:flex; gap:10px; align-items:center; }
     .btn { background:#1f2937; border:1px solid #2a2a2a; color:#e5e7eb; border-radius:12px; padding:8px 10px; }
-    .seek { width:100%; appearance:none; height:4px; border-radius:999px; background:#2a2a2a; }
-    .row { display:flex; gap:8px; align-items:center; }
     .muted { color:#94a3b8; font-size:12px; }
+    .row { display:flex; gap:8px; align-items:center; }
     .topbar { display:flex; gap:8px; align-items:center; justify-content:space-between; padding:10px; }
+    .mini { position: fixed; left:0; right:0; bottom:0; padding:10px 12px; background:#121212; border-top:1px solid #222;
+            display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center; padding-bottom:calc(12px + env(safe-area-inset-bottom)); }
+    .title { font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .seek { width:100%; appearance:none; height:4px; border-radius:999px; background:#2a2a2a; }
+    .controls { display:flex; gap:10px; align-items:center; }
     .sheet { position: fixed; inset:0; background:rgba(0,0,0,.5); display:none; }
-    .panel { position:absolute; left:0; right:0; bottom:0; max-height:70vh; overflow:auto; background:#0e0e0e;
+    .panel { position:absolute; left:0; right:0; bottom:0; max-height:74vh; overflow:auto; background:#0e0e0e;
              border-top-left-radius:16px; border-top-right-radius:16px; padding:12px; border-top:1px solid #222; }
     .list { width:100%; height:40vh; background:#111; border:1px solid #222; border-radius:12px; color:#e5e7eb; }
   </style>
@@ -29,8 +29,6 @@
 <body>
   <div class="topbar">
     <button id="openLib" class="btn">ライブラリ/PL</button>
-    <label class="btn" for="picker">＋取り込み</label>
-    <input id="picker" type="file" multiple accept=".mp3,.m4a,.aac,.wav,.m4b,audio/*">
     <span id="rateLabel" class="muted">1.0x</span>
   </div>
 
@@ -50,43 +48,43 @@
     </div>
   </div>
 
+  <!-- ライブラリ/プレイリストシート -->
   <div id="sheet" class="sheet" aria-hidden="true">
     <div class="panel">
       <div class="row" style="justify-content:space-between; margin-bottom:8px">
-        <strong>ラライブラリ & プレイリスト</strong>
-        <button id="closeLib" class="btn">閉じるる</button>
+        <strong>ライブラリ & プレイリスト</strong>
+        <button id="closeLib" class="btn">閉じる</button>
       </div>
+
       <div class="row" style="margin-bottom:8px">
         <select id="playlist" class="btn" style="flex:1"></select>
         <button id="newPl" class="btn">＋新規</button>
         <button id="renPl" class="btn">改名</button>
         <button id="delPl" class="btn">削除</button>
       </div>
+
       <div class="row" style="margin-bottom:8px">
+        <label class="btn" for="picker">＋取り込み</label>
+        <input id="picker" type="file" multiple accept=".mp3,.m4a,.aac,.wav,.m4b,audio/*">
         <select id="sort" class="btn">
           <option value="nameAsc">名前A→Z</option>
           <option value="addedDesc">新しい順</option>
         </select>
       </div>
+
       <select id="tracks" class="list" size="10"></select>
       <div class="row" style="margin-top:8px; justify-content:flex-end">
         <button id="up" class="btn">▲</button>
         <button id="down" class="btn">▼</button>
-        <button id="rm" class="btn">🗑</button>
+        <button id="rm" class="btn">🗑（PLから外す）</button>
+        <button id="rmLib" class="btn">🧹 ライブラリから削除</button>
         <button id="playSel" class="btn">この曲を再生</button>
       </div>
-      <div class="row" style="margin-top:8px; justify-content:flex-end">
-  <button id="up" class="btn">▲</button>
-  <button id="down" class="btn">▼</button>
-  <button id="rm" class="btn">🗑（PLから外す）</button>
-  <button id="rmLib" class="btn">🧹 ライブラリから削除</button>
-  <button id="playSel" class="btn">この曲を再生</button>
-</div>
-    <!-- 危険操作：全データ初期化 -->
-    <div class="row" style="margin-top:8px; justify-content:space-between">
-      <span class="muted">※ 全消しは元に戻せません</span>
-      <button id="nuke" class="btn" style="background:#7f1d1d;border-color:#7f1d1d">⚠ 全データ初期化</button>
-    </div>
+
+      <div class="row" style="margin-top:8px; justify-content:space-between">
+        <span class="muted">※ 全消しは元に戻せません</span>
+        <button id="nuke" class="btn" style="background:#7f1d1d;border-color:#7f1d1d">⚠ 全データ初期化</button>
+      </div>
     </div>
   </div>
 
