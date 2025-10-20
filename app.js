@@ -200,8 +200,16 @@ async function playNext(delta){
   closeLib.addEventListener('click', ()=>{ sheet.style.display='none'; sheet.ariaHidden='true'; });
 
   // 取り込み/並べ替え/PL操作
-  importBtn.addEventListener('click', ()=>picker.click());
-  picker.addEventListener('change', async e=>{ await importFiles(e.target.files); e.target.value=''; });
+  importBtn.addEventListener('click', () => {
+    document.getElementById('picker').click(); // ここは同期で！
+  }, { passive: true });
+  picker.addEventListener('change', (e) => {
+  const fs = Array.from(e.target.files || []);
+  alert(`選択: ${fs.length} 件\n` + fs.map(f => `${f.name} (${f.type||'unknown'})`).join('\n'));
+  // ここから importFiles(fs) を呼ぶ
+});
+
+  
   up.addEventListener('click', ()=>reorder('up'));
   down.addEventListener('click', ()=>reorder('down'));
   rm.addEventListener('click', removeFromPl);
