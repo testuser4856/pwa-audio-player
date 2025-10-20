@@ -208,6 +208,20 @@ async function nukeAllData(){
   location.reload();
 }
 
+// ---- queue（簡易） ----
+// 現在のプレイリストに "last" が無ければ、先頭を "last" にして整合を取る
+async function rebuildQueue(){
+  const pl = await currentPlaylist();
+  const order = pl.trackIds || [];
+  if (!order.length) return;
+
+  const last = (await get_('meta','last'))?.value;
+  if (!last || !order.includes(last)) {
+    await put('meta', { key:'last', value: order[0] });
+  }
+  // デバッグ版の playNext は currentPlaylist() を毎回見に行くので、
+  // ここではインデックス保持などは不要（no-op的な整合処理だけ）
+}
 
 // ---- init ----
 (async function init(){
