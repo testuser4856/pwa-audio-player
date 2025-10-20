@@ -50,6 +50,30 @@ const META={ LAST:'last', LAST_PL:'lastPlaylist', SORT:'sort', RATE:'rate' };
 const VALL='_all';
 const mmss=s=>{ s=Math.max(0,Math.floor(s||0)); const m=Math.floor(s/60),r=s%60; return `${String(m).padStart(2,'0')}:${String(r).padStart(2,'0')}`; };
 
+// === 再生位置保存（10秒ごと & 停止時フラッシュ） ===
+const saver = (() => {
+  let tid = null, last = { id:null, t:0 }, lastFlush = 0;
+  const MS = 10000;
+  async function flushNow(){
+    if (!last.id) return;
+    await put('progress', { id: last.id, time: last.t });
+    lastFlush = Date.now();
+  }
+  return {
+    schedule(id, t){
+      if (!id) return;
+      last = { id, t };
+      if (tid) return;
+      const wait = Math.max(0, MS - (Date.now() - lastFlush));
+      tid = setTimeout(async () => { tid = null; await flushNow(); }, wait);
+    },
+    async flush(){
+      if (tid) { clearTimeout(tid); tid = null; }
+      await flushNow();
+    }
+  };
+})();
+
 function isAudioFile(f){
   if (!f) return false;
   if ((f.type || '').startsWith('audio/')) return true;
@@ -136,6 +160,55 @@ async function importFiles(fileList){
   console.log('import done', ok, 'ok', ng, 'ng');
 }
 
+// 選んだ曲をライブラリから完全削除（全PLからも外す）
+async function deleteTrackEverywhere(id){
+  if(!id) return;
+
+  // 全プレイリストから外す
+  const pls = await all('playlists');
+  for (const p of pls) {
+    const before = p.trackIds.length;
+    p.trackIds = p.trackIds.filter(x => x !== id);
+    if (p.trackIds.length !== before) await put('playlists', p);
+  }
+
+  // 曲データ＆進捗を削除
+  await del('tracks', id).catch(()=>{});
+  await del('progress', id).catch(()=>{});
+
+  // 最後に再生していたIDならクリア
+  const last = (await get('meta','last'))?.value;
+  if (last === id) await put('meta', { key:'last', value: null });
+
+  await renderTracks();
+  await rebuildQueue();
+}
+
+// 危険操作：IndexedDB + SW キャッシュを全消し
+async function nukeAllData(){
+  if (!confirm('⚠ 本当に全データを消しますか？（曲・PL・進捗・キャッシュ）')) return;
+
+  // IndexedDB 全削除
+  try { db && db.close && db.close(); } catch {}
+  await new Promise((res,rej)=>{ const r = indexedDB.deleteDatabase('pwa-audio-db'); r.onsuccess=()=>res(); r.onerror=()=>rej(r.error); });
+
+  // Service Worker キャッシュ削除（このサイト分）
+  if ('caches' in window) {
+    const keys = await caches.keys();
+    await Promise.all(keys.map(k => caches.delete(k))); // 必要なら prefix で絞ってもOK
+  }
+
+  // SW も解除（任意）
+  if (navigator.serviceWorker) {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(regs.map(r => r.unregister()));
+  }
+
+  alert('初期化しました。ページを再読み込みします。');
+  location.reload();
+}
+
+
 // ---- init ----
 (async function init(){
   await openDB();
@@ -153,6 +226,21 @@ async function importFiles(fileList){
     e.target.value='';
   }, {passive:true});
 
+  // ボタン紐付け（init 内のイベント登録群に追加）
+  document.getElementById('rmLib')?.addEventListener('click', async ()=>{
+    const id = document.getElementById('tracks')?.value;
+    if (!id) return;
+    if (confirm('この曲をライブラリから完全に削除しますか？（全PLから外れます）')){
+      await deleteTrackEverywhere(id);
+    }
+  }, {passive:true});
+  
+  document.getElementById('nuke')?.addEventListener('click', nukeAllData, {passive:true});
+  
+  A.addEventListener('pause', () => { saver.flush(); }, {passive:true});
+  A.addEventListener('ended', () => { saver.flush(); }, {passive:true});
+  window.addEventListener('pagehide', () => { saver.flush(); }, {passive:true});
+
   BTN.play.addEventListener('click', ()=> A.paused?A.play():A.pause(), {passive:true});
   BTN.prev.addEventListener('click', ()=> playNext(-1), {passive:true});
   BTN.next.addEventListener('click', ()=> playNext(+1), {passive:true});
@@ -165,12 +253,16 @@ async function importFiles(fileList){
   }, {passive:true});
 
   A.addEventListener('loadedmetadata', ()=>{ if(isFinite(A.duration)) DUR.textContent=mmss(A.duration); }, {passive:true});
-  A.addEventListener('timeupdate', ()=>{
-    if(isFinite(A.duration)){
-      S.value=(A.currentTime/A.duration).toFixed(3);
-      CUR.textContent=mmss(A.currentTime);
+  A.addEventListener('timeupdate', async () => {
+    if (isFinite(A.duration)) {
+      S.value = (A.currentTime / A.duration).toFixed(3);
+      CUR.textContent = mmss(A.currentTime);
     }
+    // ★ 追加：現在曲IDで進捗をスケジュール保存
+    const id = (await get_('meta','last'))?.value;
+    saver.schedule(id, A.currentTime);
   }, {passive:true});
+
 
   const last=(await get_('meta',META.LAST))?.value;
   if(last) await loadById(last,{resume:true});
