@@ -65,17 +65,15 @@ function isAudioFile(f){
   return /\.(mp3|m4a|aac|wav|m4b)$/i.test(f.name || '');
 }
 
-// 追加：必ず Blob にしてから保存（Safariでも安定）
 async function toBlobSafe(file) {
   const type = file.type || 'audio/mpeg';
-  // 20MB以下は arrayBuffer→Blob（確実）
-  if (file.size <= 20 * 1024 * 1024) {
+  if (file.size <= 20 * 1024 * 1024) { // 20MB以下は確実にバッファ化
     const buf = await file.arrayBuffer();
     return new Blob([buf], { type });
   }
-  // 大きい場合は slice で Blob 化（コピー最小）
-  return file.slice(0, file.size, type);
+  return file.slice(0, file.size, type); // 大きいときはコピー最小で安定
 }
+
 
 async function ensurePlaylist(){
   const pls=await all('playlists');
@@ -133,7 +131,7 @@ function neighbor(delta){
 }
 
 // ==== 再生制御 ====
-async function loadById(id,{resume=true,autoplay=false}={}){
+async function loayId(id,{resume=true,autoplay=false}={}){
   if(!id) return;
   const t=await get('tracks',id); if(!t) return;
   const url=URL.createObjectURL(t.blob); A.src=url;
@@ -168,8 +166,20 @@ async function playNext(delta){
 
 // ==== 初期化 ====
 (async function init(){
-  await openDB(); await ensurePlaylist(); await renderPlaylists(); await renderTracks(); await rebuildQueue();
 
+  
+  await openDB(); await ensurePlaylist(); await renderPlaylists(); await renderTracks(); await rebuildQueue();
+// 既存の openDB 呼び出しの直後あたりでグローバルに1本
+let dbReadyPromise = (async () => {
+  try {
+    await openDB();
+    return true;
+  } catch (e) {
+    console.error('DB open failed', e);
+    return false;
+  }
+})();
+  
   // 設定復元
   const r=Number((await get('meta',META.RATE))?.value||'1'); A.playbackRate=r; rateSel.value=String(r); rateLabel.textContent=`${r.toFixed(2).replace(/\.00$/,'')}x`;
   const remain=(await get('meta',META.REMAIN))?.value===true; toggleRemain.textContent=remain?'残り':'経過';
@@ -214,43 +224,56 @@ async function playNext(delta){
     document.getElementById('picker').click(); // ここは同期で！
   }, { passive: true });
   
-// 置き換え：選択直後に value を消さない（成功後に消す）
+// 画面右上のタイトル領域を簡易ログに使う
+function toast(msg) {
+  const t = document.getElementById('title');
+  if (t) t.textContent = msg;
+  setTimeout(() => { if (t) t.textContent = t.dataset.orig || t.textContent; }, 1500);
+}
+
 picker.addEventListener('change', async (e) => {
   const files = Array.from(e.target.files || []);
   if (!files.length) return;
 
   try {
-    await importFiles(files);      // ← まず取り込み
+    // ★ DB準備を必ず待つ（ここがキモ）
+    const ready = await dbReadyPromise;
+    if (!ready) { toast('DB初期化エラー'); return; }
+
+    await importFiles(files);   // ← 保存処理
+    toast('取り込み完了');
+  } catch (err) {
+    console.error('import change failed', err);
+    alert('取り込み中にエラー: ' + (err?.message || err));
   } finally {
     // 成否に関わらず、連続選択できるよう最後にクリア
     e.target.value = '';
   }
 }, { passive: true });
 
-// 置き換え：File→Blob化してからIndexedDBへ保存
 async function importFiles(fileList){
   const files = Array.from(fileList).filter(isAudioFile);
-  if (!files.length) return;
+  if (!files.length) { toast('音声ファイルなし'); return; }
 
   const titleEl = document.getElementById('title');
-  const origTitle = titleEl?.textContent || '';
-  const pid = document.getElementById('playlist')?.value; // '_all' 以外なら自動追加
+  if (titleEl && !titleEl.dataset.orig) titleEl.dataset.orig = titleEl.textContent || '';
 
+  const pid = document.getElementById('playlist')?.value; // '_all' 以外なら自動追加
   let ok = 0, ng = 0;
+
   for (const f of files) {
     try {
       if (titleEl) titleEl.textContent = `取り込み中… ${ok+ng+1}/${files.length} : ${f.name}`;
       await new Promise(r => setTimeout(r, 0)); // UIに制御を返す
 
       const id   = `${f.name}__${f.size}__${f.lastModified}`;
-      const blob = await toBlobSafe(f); // ★ ここがキモ
+      const blob = await toBlobSafe(f); // ★ Safari安定化
 
       await put('tracks', {
         id, name: f.name, type: f.type, size: f.size, blob,
         addedAt: Date.now()
       });
 
-      // 実プレイリスト選択時は自動追加
       if (pid && pid !== '_all') {
         const pl = await get('playlists', pid);
         if (pl && !pl.trackIds.includes(id)) {
@@ -262,16 +285,16 @@ async function importFiles(fileList){
     } catch (e) {
       console.warn('import failed:', f?.name, e);
       ng++;
+      // 失敗を可視化
+      alert(`保存失敗: ${f?.name}\n${e?.message || e}`);
     }
   }
 
-  if (titleEl) titleEl.textContent = origTitle;
-  await renderTracks();   // リスト反映
-  await rebuildQueue();   // 次/前 整合
-
-  // （任意）簡易トースト
-  // alert(`取込完了: ${ok}件${ng?` / 失敗:${ng}件`:''}`);
+  // リスト更新（All Tracksを表示中なら名前が並ぶ）
+  await renderTracks();
+  await rebuildQueue();
 }
+
 
   
   up.addEventListener('click', ()=>reorder('up'));
