@@ -65,54 +65,16 @@ function isAudioFile(f){
   return /\.(mp3|m4a|aac|wav|m4b)$/i.test(f.name || '');
 }
 
-async function importFiles(fileList){
-  const files = Array.from(fileList).filter(isAudioFile);
-  if (!files.length) return;
-
-  const titleEl = document.getElementById('title');
-  const origTitle = titleEl?.textContent || '';
-  const pid = document.getElementById('playlist')?.value;
-
-  let done = 0;
-  for (const f of files) {
-    done++;
-    // 進捗を軽く表示（UIブロック回避のため小休止も入れる）
-    if (titleEl) titleEl.textContent = `取り込み中… ${done}/${files.length} : ${f.name}`;
-    await new Promise(r => setTimeout(r, 0)); // UIに制御を返す
-
-    try {
-      const id = `${f.name}__${f.size}__${f.lastModified}`;
-
-      // ★ポイント：arrayBufferせず、File(=Blob)をそのまま保存
-      await put('tracks', {
-        id,
-        name: f.name,
-        type: f.type,
-        size: f.size,
-        blob: f,              // ここが軽量化のキモ
-        addedAt: Date.now()
-      });
-
-      // 実プレイリスト選択時は自動追加
-      if (pid && pid !== '_all') {
-        const pl = await get('playlists', pid);
-        if (pl && !pl.trackIds.includes(id)) {
-          pl.trackIds.push(id);
-          await put('playlists', pl);
-        }
-      }
-    } catch (e) {
-      console.warn('import failed:', f.name, e);
-    }
+// 追加：必ず Blob にしてから保存（Safariでも安定）
+async function toBlobSafe(file) {
+  const type = file.type || 'audio/mpeg';
+  // 20MB以下は arrayBuffer→Blob（確実）
+  if (file.size <= 20 * 1024 * 1024) {
+    const buf = await file.arrayBuffer();
+    return new Blob([buf], { type });
   }
-
-  if (titleEl) titleEl.textContent = origTitle;
-  await renderTracks();
-  await rebuildQueue();
-
-  // 同じファイルを続けて選んでも再発火するように
-  const picker = document.getElementById('picker');
-  if (picker) picker.value = '';
+  // 大きい場合は slice で Blob 化（コピー最小）
+  return file.slice(0, file.size, type);
 }
 
 async function ensurePlaylist(){
@@ -251,14 +213,65 @@ async function playNext(delta){
   importBtn.addEventListener('click', () => {
     document.getElementById('picker').click(); // ここは同期で！
   }, { passive: true });
-// 置き換え：pickerのchangeハンドラ
+  
+// 置き換え：選択直後に value を消さない（成功後に消す）
 picker.addEventListener('change', async (e) => {
   const files = Array.from(e.target.files || []);
-  // （デバッグ）何件来てるか見たい時は次の1行を一時ON：
-  // alert('選択: ' + files.length + ' 件');
-  await importFiles(files);
-  e.target.value = ''; // 同じファイルを続けて選んでも再発火するように
+  if (!files.length) return;
+
+  try {
+    await importFiles(files);      // ← まず取り込み
+  } finally {
+    // 成否に関わらず、連続選択できるよう最後にクリア
+    e.target.value = '';
+  }
 }, { passive: true });
+
+// 置き換え：File→Blob化してからIndexedDBへ保存
+async function importFiles(fileList){
+  const files = Array.from(fileList).filter(isAudioFile);
+  if (!files.length) return;
+
+  const titleEl = document.getElementById('title');
+  const origTitle = titleEl?.textContent || '';
+  const pid = document.getElementById('playlist')?.value; // '_all' 以外なら自動追加
+
+  let ok = 0, ng = 0;
+  for (const f of files) {
+    try {
+      if (titleEl) titleEl.textContent = `取り込み中… ${ok+ng+1}/${files.length} : ${f.name}`;
+      await new Promise(r => setTimeout(r, 0)); // UIに制御を返す
+
+      const id   = `${f.name}__${f.size}__${f.lastModified}`;
+      const blob = await toBlobSafe(f); // ★ ここがキモ
+
+      await put('tracks', {
+        id, name: f.name, type: f.type, size: f.size, blob,
+        addedAt: Date.now()
+      });
+
+      // 実プレイリスト選択時は自動追加
+      if (pid && pid !== '_all') {
+        const pl = await get('playlists', pid);
+        if (pl && !pl.trackIds.includes(id)) {
+          pl.trackIds.push(id);
+          await put('playlists', pl);
+        }
+      }
+      ok++;
+    } catch (e) {
+      console.warn('import failed:', f?.name, e);
+      ng++;
+    }
+  }
+
+  if (titleEl) titleEl.textContent = origTitle;
+  await renderTracks();   // リスト反映
+  await rebuildQueue();   // 次/前 整合
+
+  // （任意）簡易トースト
+  // alert(`取込完了: ${ok}件${ng?` / 失敗:${ng}件`:''}`);
+}
 
   
   up.addEventListener('click', ()=>reorder('up'));
