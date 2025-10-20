@@ -252,7 +252,7 @@ picker.addEventListener('change', async (e) => {
 }, { passive: true });
 
 async function importFiles(fileList){
-  const files = Array.from(fileList).filter(isAudioFile);
+  const files = Array.from(fileList).filter();
   if (!files.length) { toast('音声ファイルなし'); return; }
 
   const titleEl = document.getElementById('title');
