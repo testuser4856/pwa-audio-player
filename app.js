@@ -55,55 +55,17 @@ const saver=(()=>{let tid=null,last={id:null,t:0},lastFlush=0;const MS=10000;
   }, async flush(){ if(tid){clearTimeout(tid); tid=null;} await flushNow(); } };
 })();
 
-// 置き換え：大量ファイルを逐次で安全に取り込み＋進捗表示
-async function importFiles(fileList){
-  const files = Array.from(fileList).filter(f => (f.type||'').startsWith('audio/'));
-  if (!files.length) return;
-
-  // 簡易進捗（タイトル欄を一時利用）
-  const titleEl = document.getElementById('title');
-  const origTitle = titleEl.textContent;
-
-  const pid = document.getElementById('playlist').value;
-  let done = 0;
-
-  for (const f of files) {
-    // 進捗表示（1/N）
-    done++;
-    titleEl.textContent = `取り込み中… ${done}/${files.length} : ${f.name}`;
-
-    // 連続処理で固まらないように少しだけ譲る
-    await new Promise(r => setTimeout(r, 0));
-
-    try {
-      const id = `${f.name}__${f.size}__${f.lastModified}`;
-      const buf = await f.arrayBuffer();           // 読み込み
-      const blob = new Blob([buf], { type: f.type || 'audio/mpeg' });
-
-      // 曲データを保存
-      await put('tracks', {
-        id, name: f.name, type: f.type, size: f.size, blob,
-        addedAt: Date.now()
-      });
-
-      // 選択中プレイリストに自動追加（All Tracksは除外）
-      if (pid && pid !== '_all') {
-        const pl = await get('playlists', pid);
-        if (pl && !pl.trackIds.includes(id)) {
-          pl.trackIds.push(id);
-          await put('playlists', pl);
-        }
-      }
-    } catch (e) {
-      // 失敗はスキップ（で止めない）
-      console.warn('import failed:', f.name, e);
-    }
+// ==== プレイリスト＆ライブラリ ====
+function fileIdOf(f){ return `${f.name}__${f.size}__${f.lastModified}`; }
+async function importFiles(files){
+  const pid=playlistSel.value;
+  for(const f of files){
+    if(!f.type?.startsWith('audio/')) continue;
+    const id=fileIdOf(f), blob=new Blob([await f.arrayBuffer()],{type:f.type||'audio/mpeg'});
+    await put('tracks',{id,name:f.name,type:f.type,size:f.size,blob,addedAt:Date.now()});
+    if(pid && pid!==VALL){ const pl=await get('playlists',pid); if(pl && !pl.trackIds.includes(id)){ pl.trackIds.push(id); await put('playlists',pl); } }
   }
-
-  // 後片付け
-  titleEl.textContent = origTitle;
-  await renderTracks();
-  await rebuildQueue();
+  await rebuildQueue(); await renderTracks();
 }
 async function ensurePlaylist(){
   const pls=await all('playlists');
@@ -146,8 +108,8 @@ async function removeFromPl(){
   await put('playlists',pl); await renderTracks(); await rebuildQueue();
 }
 
-// ==== 再生キュー（前後3曲だけ持つ考え方の軽量版: 実装は現在曲のindexだけ保持） ====
-const Q={ order:[], index:0 };
+// ==== 再生キュー（前後3曲だけ持つ） ====
+const Q={ order:[], index:0 }; // order: 現在のプレイリスト順, index: 現在位置
 async function rebuildQueue(){
   const pl=await currentPlaylist();
   Q.order = pl.trackIds;
@@ -169,7 +131,7 @@ async function loadById(id,{resume=true,autoplay=false}={}){
   const prog=await get('progress',id); const start=(resume&&prog)?prog.time:0;
   A.currentTime=start||0;
   await put('meta',{key:META.LAST,value:id});
-  await rebuildQueue();
+  await rebuildQueue(); // index同期
 
   // タイトル（既定はスクロールOFF／ON時のみDOM2倍に）
   const marq = (await get('meta',META.MARQ))?.value === true;
@@ -210,115 +172,6 @@ async function playNext(delta){
   BTN.prev.addEventListener('click',()=>playNext(-1),{passive:true});
   BTN.next.addEventListener('click',()=>playNext(+1),{passive:true});
 
-import JSZip from "jszip";
-const zip = new JSZip();
-
-// 例：プレイリスト
-const playlists = [
-  { id: "pl_123", name: "All Tracks", trackIds: tracks.map(t=>`${t.name}__${t.size}`), createdAt: Date.now() }
-];
-zip.file("playlists.json", JSON.stringify(playlists));
-
-// さらに曲ファイルを追加
-for (const t of tracks) {
-  zip.file(`tracks/${t.name}`, t.blob);
-}
-
-const blob = await zip.generateAsync({ type: "blob" });
-saveAs(blob, "library_01.zip");
-
-picker.addEventListener('change', async e => {
-  if (!e.target.files.length) return;
-  await importFiles(e.target.files); // 既存の importFiles() を使用
-  e.target.value = '';
-});
-
-const pickerJSON = document.getElementById('pickerJSON');
-pickerJSON.addEventListener('change', async e => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const text = await file.text();
-  const arr = JSON.parse(text);
-  for (const t of arr) {
-    const blob = new Blob([new Uint8Array(t.blob)], { type: t.type });
-    await put('tracks', { id: t.id, name: t.name, type: t.type, blob });
-  }
-  await renderTracks(); // 既存関数で画面に反映
-  alert('曲を読み込みました！');
-});
-
-
-// 曲をJSONとして書き出す
-document.getElementById('exportTracks').addEventListener('click', async () => {
-  const tracks = await all('tracks'); // all() は既存IndexedDB関数
-  const exportData = await Promise.all(tracks.map(async t => ({
-    id: t.id,
-    name: t.name,
-    type: t.type,
-    blob: Array.from(new Uint8Array(await t.blob.arrayBuffer()))
-  })));
-  const blob = new Blob([JSON.stringify(exportData)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'tracks.json';
-  a.click();
-});
-
-import JSZip from "jszip";
-
-// ZIP読み込みボタン
-document.getElementById("importZip").addEventListener("click", () => {
-  document.getElementById("zipInput").click();
-});
-
-document.getElementById("zipInput").addEventListener("change", async (e) => {
-  const files = Array.from(e.target.files);
-  if (!files.length) return;
-
-  const titleEl = document.getElementById('title');
-  const origTitle = titleEl.textContent;
-
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    titleEl.textContent = `読み込み中… ${i+1}/${files.length} : ${file.name}`;
-    
-    try {
-      const zip = await JSZip.loadAsync(file);
-
-      // JSZip内の全ファイルを順次展開
-      for (const [path, entry] of Object.entries(zip.files)) {
-        if (entry.dir) continue;
-
-        if (path.endsWith(".mp3")) {
-          const blob = await entry.async("blob");
-          const id = `${path}__${blob.size}`;
-          await put("tracks", { id, name: path, blob, addedAt: Date.now() });
-        } 
-        if (path.endsWith(".json")) {
-          const text = await entry.async("text");
-          const data = JSON.parse(text);
-
-          if (Array.isArray(data)) {
-            for (const pl of data) await put("playlists", pl);
-          } else {
-            await put("playlists", data);
-          }
-        }
-      }
-
-    } catch (err) {
-      console.error("ZIP読み込み失敗:", file.name, err);
-    }
-
-    await renderPlaylists();
-    await renderTracks();
-  }
-
-  titleEl.textContent = origTitle;
-  alert("全てのZIPを読み込みました！");
-});
-  
   // シーク
   let scrubbing=false;
   S.addEventListener('input',()=>{scrubbing=true; const t=(A.duration||0)*Number(S.value); CUR.textContent=mmss(t);},{passive:true});
