@@ -177,7 +177,7 @@ async function deleteTrackEverywhere(id){
   await del_('progress', id).catch(()=>{});
 
   // 最後に再生していたIDならクリア
-  const last = (await get('meta','last'))?.value;
+  const last = (await get_('meta','last'))?.value;
   if (last === id) await put('meta', { key:'last', value: null });
 
   await renderTracks();
