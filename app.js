@@ -57,16 +57,64 @@ const saver=(()=>{let tid=null,last={id:null,t:0},lastFlush=0;const MS=10000;
 
 // ==== プレイリスト＆ライブラリ ====
 function fileIdOf(f){ return `${f.name}__${f.size}__${f.lastModified}`; }
-async function importFiles(files){
-  const pid=playlistSel.value;
-  for(const f of files){
-    if(!f.type?.startsWith('audio/')) continue;
-    const id=fileIdOf(f), blob=new Blob([await f.arrayBuffer()],{type:f.type||'audio/mpeg'});
-    await put('tracks',{id,name:f.name,type:f.type,size:f.size,blob,addedAt:Date.now()});
-    if(pid && pid!==VALL){ const pl=await get('playlists',pid); if(pl && !pl.trackIds.includes(id)){ pl.trackIds.push(id); await put('playlists',pl); } }
-  }
-  await rebuildQueue(); await renderTracks();
+
+// 既存の importFiles を置き換え
+function isAudioFile(f){
+  if (!f) return false;
+  if ((f.type || '').startsWith('audio/')) return true;
+  return /\.(mp3|m4a|aac|wav|m4b)$/i.test(f.name || '');
 }
+
+async function importFiles(fileList){
+  const files = Array.from(fileList).filter(isAudioFile);
+  if (!files.length) return;
+
+  const titleEl = document.getElementById('title');
+  const origTitle = titleEl?.textContent || '';
+  const pid = document.getElementById('playlist')?.value;
+
+  let done = 0;
+  for (const f of files) {
+    done++;
+    // 進捗を軽く表示（UIブロック回避のため小休止も入れる）
+    if (titleEl) titleEl.textContent = `取り込み中… ${done}/${files.length} : ${f.name}`;
+    await new Promise(r => setTimeout(r, 0)); // UIに制御を返す
+
+    try {
+      const id = `${f.name}__${f.size}__${f.lastModified}`;
+
+      // ★ポイント：arrayBufferせず、File(=Blob)をそのまま保存
+      await put('tracks', {
+        id,
+        name: f.name,
+        type: f.type,
+        size: f.size,
+        blob: f,              // ここが軽量化のキモ
+        addedAt: Date.now()
+      });
+
+      // 実プレイリスト選択時は自動追加
+      if (pid && pid !== '_all') {
+        const pl = await get('playlists', pid);
+        if (pl && !pl.trackIds.includes(id)) {
+          pl.trackIds.push(id);
+          await put('playlists', pl);
+        }
+      }
+    } catch (e) {
+      console.warn('import failed:', f.name, e);
+    }
+  }
+
+  if (titleEl) titleEl.textContent = origTitle;
+  await renderTracks();
+  await rebuildQueue();
+
+  // 同じファイルを続けて選んでも再発火するように
+  const picker = document.getElementById('picker');
+  if (picker) picker.value = '';
+}
+
 async function ensurePlaylist(){
   const pls=await all('playlists');
   if(!pls.length){ const p={id:`pl_${Date.now()}`,name:'My Playlist',trackIds:[],createdAt:Date.now()}; await put('playlists',p); await put('meta',{key:META.LAST_PL,value:p.id}); }
@@ -203,11 +251,14 @@ async function playNext(delta){
   importBtn.addEventListener('click', () => {
     document.getElementById('picker').click(); // ここは同期で！
   }, { passive: true });
-  picker.addEventListener('change', (e) => {
-  const fs = Array.from(e.target.files || []);
-  alert(`選択: ${fs.length} 件\n` + fs.map(f => `${f.name} (${f.type||'unknown'})`).join('\n'));
-  // ここから importFiles(fs) を呼ぶ
-});
+// 置き換え：pickerのchangeハンドラ
+picker.addEventListener('change', async (e) => {
+  const files = Array.from(e.target.files || []);
+  // （デバッグ）何件来てるか見たい時は次の1行を一時ON：
+  // alert('選択: ' + files.length + ' 件');
+  await importFiles(files);
+  e.target.value = ''; // 同じファイルを続けて選んでも再発火するように
+}, { passive: true });
 
   
   up.addEventListener('click', ()=>reorder('up'));
