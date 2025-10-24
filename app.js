@@ -93,6 +93,15 @@ async function nukeAllData(){ if(!confirm('⚠ 本当に全データを消しま
   alert('初期化しました。再読み込みします。'); location.reload();
 }
 
+// 追加：任意秒数シーク（範囲安全化）
+function seekBy(sec){
+  const d = isFinite(A.duration) ? A.duration : 0;
+  if (!d) return;
+  let t = (A.currentTime || 0) + sec;
+  t = Math.max(0, Math.min(d - 0.25, t)); // 終端でended誤発を避けて少し手前に
+  A.currentTime = t;
+}
+  
 async function importFiles(fileList){
   const files=Array.from(fileList).filter(isAudioFile); if(!files.length) return;
   const pid=await getImportTargetPlaylistId(); let pl=await get_('playlists',pid);
@@ -158,9 +167,15 @@ async function importFiles(fileList){
     const id=(await get_('meta',META.LAST))?.value; saver.schedule(id,A.currentTime);
   }, {passive:true});
   A.addEventListener('pause', ()=>{ saver.flush(); }, {passive:true});
-  A.addEventListener('ended', ()=>{ saver.flush(); }, {passive:true});
-  window.addEventListener('pagehide', ()=>{ saver.flush(); }, {passive:true});
+  A.addEventListener('ended', async ()=>{
+    await saver.flush();              // 位置保存
+    await playNext(+1);               // ★ 自動で次の曲へ（循環）
+  }, {passive:true});
 
+  window.addEventListener('pagehide', ()=>{ saver.flush(); }, {passive:true});
+  // init() 内のイベント登録群に追加
+  document.getElementById('back10').addEventListener('click', ()=> seekBy(-10), {passive:true});
+  document.getElementById('fwd10').addEventListener('click', ()=> seekBy(+10), {passive:true});
   const last=(await get_('meta',META.LAST))?.value; if(last) await loadById(last,{resume:true});
 })().catch(err=>{ alert('初期化エラー: '+(err?.message||err)); });
 })();
