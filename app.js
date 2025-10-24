@@ -92,6 +92,13 @@ async function nukeAllData(){ if(!confirm('⚠ 本当に全データを消しま
   if(navigator.serviceWorker){ const regs=await navigator.serviceWorker.getRegistrations(); await Promise.all(regs.map(r=>r.unregister())); }
   alert('初期化しました。再読み込みします。'); location.reload();
 }
+// 追加：速度プリセット
+const RATES = [0.75, 1.0, 1.25, 1.5, 2.0];
+
+function applyRate(r){
+  A.playbackRate = r;
+  rateLabel.textContent = r.toFixed(2).replace(/\.00$/,'') + 'x';
+}
 
 // 追加：任意秒数シーク（範囲安全化）
 function seekBy(sec){
@@ -129,6 +136,10 @@ async function importFiles(fileList){
   openLib.addEventListener('click', ()=>{ sheet.style.display='block'; sheet.ariaHidden='false'; }, {passive:true});
   closeLib.addEventListener('click', ()=>{ sheet.style.display='none'; sheet.ariaHidden='true'; }, {passive:true});
 
+    // init() 内：プレイリスト描画の前あたりに「保存値の読み込み」を追加
+  const savedRate = (await get_('meta', META.RATE))?.value || 1.0;
+  applyRate(savedRate);
+    
   picker.addEventListener('change', async (e)=>{ const files=Array.from(e.target.files||[]); if(!files.length) return; try{ await importFiles(files); } finally{ e.target.value=''; } }, {passive:true});
 
   document.getElementById('newPl').addEventListener('click', async ()=>{ const name=prompt('プレイリスト名？','New Playlist'); if(!name) return;
@@ -171,7 +182,14 @@ async function importFiles(fileList){
     await saver.flush();              // 位置保存
     await playNext(+1);               // ★ 自動で次の曲へ（循環）
   }, {passive:true});
-
+  // init() のイベント登録群に「ラベルタップで速度切替」を追加
+  rateLabel.addEventListener('click', async ()=>{
+    const cur = A.playbackRate || 1.0;
+    const idx = RATES.findIndex(x => Math.abs(x - cur) < 1e-6);
+    const next = RATES[(idx + 1) % RATES.length];
+    applyRate(next);
+    await put('meta', { key: META.RATE, value: next });  // 永続化
+  }, {passive:true});
   window.addEventListener('pagehide', ()=>{ saver.flush(); }, {passive:true});
   // init() 内のイベント登録群に追加
   document.getElementById('back10').addEventListener('click', ()=> seekBy(-10), {passive:true});
