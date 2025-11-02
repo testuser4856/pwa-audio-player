@@ -1,4 +1,4 @@
-const VERSION='v3007';
+const VERSION='v3008';
 const CACHE=`pwa-audio-mini-${VERSION}`;
 const ASSETS=['./','./index.html','./app.js','./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png'];
 self.addEventListener('install',e=>{ e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS))); self.skipWaiting(); });
@@ -8,7 +8,7 @@ self.addEventListener('fetch',e=>{
   if (req.headers.get('range')) return;
   e.respondWith((async()=>{
     const c=await caches.open(CACHE);
-    const hit=await c.match(req,{ignoreSearch:true});
+    const hit = await c.match(req);
     if(hit) return hit;
     try{
       const res=await fetch(req);
