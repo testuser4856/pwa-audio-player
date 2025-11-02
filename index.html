@@ -40,6 +40,20 @@
       .btn { padding: 6px 8px; border-radius: 10px; }
       .mini { padding: 8px 10px; }
     }
+    .title.marquee {
+      mask-image: linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
+    }
+    .title.marquee > span {
+      display: inline-block;
+      padding-inline: 12px;
+      animation: marquee 10s linear infinite;
+    }
+    .title.marquee.pause > span { animation-play-state: paused; }
+    
+    @keyframes marquee {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-50%); } /* JSで複製するので50%でOK */
+    }
 
   </style>
 </head>
