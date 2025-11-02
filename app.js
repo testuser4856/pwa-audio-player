@@ -145,6 +145,36 @@ function enableTitleMarqueeIfNeeded(text){
     }
   });
 }
+function setTitleText(text) {
+  const el = document.getElementById('title');
+  if (!el) return;
+  el.textContent = text || '';
+  // フルテキストは dataset に持たせておく
+  el.dataset.full = text || '';
+}
+
+function titleOverflows() {
+  const el = document.getElementById('title');
+  if (!el) return false;
+  // レイアウト確定後に幅判定（Safariでも軽い）
+  return el.scrollWidth > el.clientWidth + 1;
+}
+
+let peekTid = null;
+function showTitlePeek() {
+  const el = document.getElementById('title');
+  const peek = document.getElementById('titlePeek');
+  if (!el || !peek) return;
+
+  // 短いタイトルなら何もしない（省電力）
+  if (!titleOverflows()) return;
+
+  peek.textContent = el.dataset.full || el.textContent || '';
+  peek.hidden = false;
+  // 2.5秒で自動消灯（アニメ無し）
+  if (peekTid) clearTimeout(peekTid);
+  peekTid = setTimeout(()=> { peek.hidden = true; }, 2500);
+}
 
 (async function init(){
   await openDB();
@@ -162,6 +192,8 @@ function enableTitleMarqueeIfNeeded(text){
     
   picker.addEventListener('change', async (e)=>{ const files=Array.from(e.target.files||[]); if(!files.length) return; try{ await importFiles(files); } finally{ e.target.value=''; } }, {passive:true});
 
+  // タイトルをタップしたら一時ポップ表示
+  document.getElementById('title')?.addEventListener('click', showTitlePeek, { passive: true });
   document.getElementById('newPl').addEventListener('click', async ()=>{ const name=prompt('プレイリスト名？','New Playlist'); if(!name) return;
     const p={id:`pl_${Date.now()}`,name,trackIds:[],createdAt:Date.now()}; await put('playlists',p); await put('meta',{key:META.LAST_PL,value:p.id});
     await renderPlaylists(); playlistSel.value=p.id; await renderTracks();
