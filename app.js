@@ -67,7 +67,7 @@ async function deleteChunksForTrack(id){ for(let i=0;i<10000;i++){ const key=`${
 async function loadById(id,{resume=true,autoplay=false}={}){ if(!id) return; let t=await get_('tracks',id); if(!t) t=memoryShadow.get(id); if(!t) return;
   const blob=t.chunked?await loadBlobForTrack(t):t.blob; const url=URL.createObjectURL(blob); A.src=url;
   const prog=await get_('progress',id); const start=(resume&&prog)?prog.time:0;
-  A.currentTime=start||0; enableTitleMarqueeIfNeeded(t.name || '再生中'); CUR.textContent=mmss(start||0); S.value='0'; DUR.textContent='--:--';
+  A.currentTime=start||0; enableTitleMarqueeIfNeeded(t.name || '再生中!'); CUR.textContent=mmss(start||0); S.value='0'; DUR.textContent='--:--';
   await put('meta',{key:META.LAST,value:id}); if(autoplay) A.play().catch(()=>{});
 }
 async function playNext(delta){ const order=(await currentPlaylist()).trackIds; if(!order.length) return; const curId=(await get_('meta',META.LAST))?.value || order[0];
