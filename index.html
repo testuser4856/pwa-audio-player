@@ -24,6 +24,23 @@
     .panel { position:absolute; left:0; right:0; bottom:0; max-height:74vh; overflow:auto; background:#0e0e0e;
              border-top-left-radius:16px; border-top-right-radius:16px; padding:12px; border-top:1px solid #222; }
     .list { width:100%; height:40vh; background:#111; border:1px solid #222; border-radius:12px; color:#e5e7eb; }
+    /* 重要：タイトル側が横幅を食い尽くさないようにする */
+    .mini { grid-template-columns: minmax(0,1fr) auto; }   /* 1列目が縮められる */
+    .mini > div:first-child { min-width: 0; }              /* これが無いと省略が効かない */
+    
+    /* タイトルは必ず省略表示（1行） */
+    .title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    
+    /* コントロールは縮ませない（押し出されない） */
+    .controls { flex: 0 0 auto; }
+    
+    /* 画面が狭い時はボタン間隔とパディングを詰める */
+    @media (max-width: 380px) {
+      .controls { gap: 6px; }
+      .btn { padding: 6px 8px; border-radius: 10px; }
+      .mini { padding: 8px 10px; }
+    }
+
   </style>
 </head>
 <body>
