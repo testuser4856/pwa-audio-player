@@ -125,6 +125,26 @@ async function importFiles(fileList){
   }
   await renderPlaylists(); if(playlistSel.value===VALL) playlistSel.value=pid; await renderTracks(); await rebuildQueue();
 }
+  
+function enableTitleMarqueeIfNeeded(text){
+  const el = document.getElementById('title');
+  if (!el) return;
+  el.classList.remove('marquee','pause');
+  el.innerHTML = `<span>${text}</span>`;
+  const span = el.querySelector('span');
+  // 少し待って幅を判定
+  requestAnimationFrame(()=>{
+    if (span.scrollWidth > el.clientWidth) {
+      const repeat = document.createElement('span');
+      repeat.textContent = `  —  ${text}`;
+      el.appendChild(repeat);
+      el.classList.add('marquee');
+      // 長押しで一時停止
+      el.addEventListener('pointerdown', ()=> el.classList.add('pause'), {passive:true});
+      el.addEventListener('pointerup',   ()=> el.classList.remove('pause'), {passive:true});
+    }
+  });
+}
 
 (async function init(){
   await openDB();
