@@ -191,6 +191,34 @@ async function importFiles(fileList){
     await put('meta', { key: META.RATE, value: next });  // 永続化
   }, {passive:true});
   window.addEventListener('pagehide', ()=>{ saver.flush(); }, {passive:true});
+
+  // タイトルが溢れる時だけ、スクロール表示に切り替え
+  function enableTitleMarqueeIfNeeded(text){
+    const el = document.getElementById('title');
+    if (!el) return;
+    el.classList.remove('marquee','pause');
+    el.textContent = text || '';
+  
+    // 一旦描画させて幅を測る
+    const need = el.scrollWidth > el.clientWidth;
+    if (!need) return;
+  
+    // スクロール用に内容を2回並べる
+    const span = document.createElement('span');
+    span.textContent = ` ${text} \u00a0\u00a0\u00a0—\u00a0\u00a0\u00a0 ${text} `;
+    el.innerHTML = '';
+    el.appendChild(span);
+    el.classList.add('marquee');
+  
+    // 長押しで一時停止（好みで）
+    el.addEventListener('pointerdown', ()=> el.classList.add('pause'), {passive:true});
+    el.addEventListener('pointerup',   ()=> el.classList.remove('pause'), {passive:true});
+  }
+  
+  // 既存の loadById のタイトル更新行を置換
+  // T.textContent = t.name || '再生中';
+  enableTitleMarqueeIfNeeded(t.name || '再生中');
+
   // init() 内のイベント登録群に追加
   document.getElementById('back10').addEventListener('click', ()=> seekBy(-10), {passive:true});
   document.getElementById('fwd10').addEventListener('click', ()=> seekBy(+10), {passive:true});
