@@ -50,6 +50,32 @@
       font-size: 14px;
       line-height: 1.4;
       pointer-events: none; /* タップは下に通す＝省電力＆簡単 */
+
+      .listbox {
+        display: grid;
+        grid-auto-rows: minmax(36px, auto);
+        overflow: auto;
+        padding: 6px;
+        gap: 4px;
+      }
+      
+      .listitem {
+        padding: 8px 10px;
+        border: 1px solid #2a2a2a;
+        border-radius: 10px;
+        background: #141414;
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      
+      .listitem.selected {
+        background: #1f2937;
+        border-color: #3a3a3a;
+      }
+
     }
         
     /* コントロールは縮ませない（押し出されない） */
@@ -115,6 +141,9 @@
       </div>
 
       <select id="tracks" class="list" size="10"></select>
+      <!-- 追加：iOS用の擬似リスト（常時スクロール表示） -->
+      <div id="tracksList" class="list listbox" role="listbox" hidden></div>
+
       <div class="row" style="margin-top:8px; justify-content:flex-end">
         <button id="up" class="btn">▲</button>
         <button id="down" class="btn">▼</button>
