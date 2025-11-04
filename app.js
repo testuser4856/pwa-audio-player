@@ -186,15 +186,6 @@ function setSelectedTrackId(id){
   }
 }
 
-// 追加：任意秒数シーク（範囲安全化）
-function seekBy(sec){
-const d = isFinite(A.duration) ? A.duration : 0;
-if (!d) return;
-let t = (A.currentTime || 0) + sec;
-t = Math.max(0, Math.min(d - 0.25, t)); // 終端でended誤発を避けて少し手前に
-A.currentTime = t;
-}
-
 async function importFiles(fileList){
   const files=Array.from(fileList).filter(isAudioFile); if(!files.length) return;
   const pid=await getImportTargetPlaylistId(); let pl=await get_('playlists',pid);
