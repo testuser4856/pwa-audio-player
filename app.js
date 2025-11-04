@@ -289,17 +289,17 @@ function showTitlePeek() {
     if(!confirm('プレイリストを削除しますか？（曲は消えません）')) return; await del_('playlists',id); playlistSel.value=VALL; await renderPlaylists(); await renderTracks(); await rebuildQueue();
   });
   up.addEventListener('click', async ()=>{ const id=playlistSel.value; if(id===VALL) return; const pl=await get_('playlists',id);
-    const cur=tracksSel.value; const i=pl.trackIds.indexOf(cur); const j=i-1; if(i<=0) return; [pl.trackIds[i],pl.trackIds[j]]=[pl.trackIds[j],pl.trackIds[i]]; await put('playlists',pl); await renderTracks(); tracksSel.value=cur;
+    const cur=getSelectedTrackId(); const i=pl.trackIds.indexOf(cur); const j=i-1; if(i<=0) return; [pl.trackIds[i],pl.trackIds[j]]=[pl.trackIds[j],pl.trackIds[i]]; await put('playlists',pl); await renderTracks(); tracksSel.value=cur;
   }, {passive:true});
   down.addEventListener('click', async ()=>{ const id=playlistSel.value; if(id===VALL) return; const pl=await get_('playlists',id);
-    const cur=tracksSel.value; const i=pl.trackIds.indexOf(cur); const j=i+1; if(i<0||j>=pl.trackIds.length) return; [pl.trackIds[i],pl.trackIds[j]]=[pl.trackIds[j],pl.trackIds[i]]; await put('playlists',pl); await renderTracks(); tracksSel.value=cur;
+    const cur=getSelectedTrackId(); const i=pl.trackIds.indexOf(cur); const j=i+1; if(i<0||j>=pl.trackIds.length) return; [pl.trackIds[i],pl.trackIds[j]]=[pl.trackIds[j],pl.trackIds[i]]; await put('playlists',pl); await renderTracks(); tracksSel.value=cur;
   }, {passive:true});
   rm.addEventListener('click', async ()=>{ const id=playlistSel.value; if(id===VALL) return; const pl=await get_('playlists',id);
-    const cur=tracksSel.value; pl.trackIds=pl.trackIds.filter(x=>x!==cur); await put('playlists',pl); await renderTracks(); await rebuildQueue();
+    const cur=getSelectedTrackId(); pl.trackIds=pl.trackIds.filter(x=>x!==cur); await put('playlists',pl); await renderTracks(); await rebuildQueue();
   }, {passive:true});
-  rmLib.addEventListener('click', async ()=>{ const cur=tracksSel.value; if(!cur) return; if(!confirm('この曲をライブラリから完全削除しますか？')) return; await deleteTrackEverywhere(cur);
+  rmLib.addEventListener('click', async ()=>{ const cur=getSelectedTrackId(); if(!cur) return; if(!confirm('この曲をライブラリから完全削除しますか？')) return; await deleteTrackEverywhere(cur);
   }, {passive:true});
-  playSel.addEventListener('click', async ()=>{ const id=tracksSel.value; if(id) await loadById(id,{resume:true,autoplay:true}); }, {passive:true});
+  playSel.addEventListener('click', async ()=>{ const id=getSelectedTrackId(); if(id) await loadById(id,{resume:true,autoplay:true}); }, {passive:true});
   sortSel.addEventListener('change', async ()=>{ await put('meta',{key:META.SORT,value:sortSel.value}); await renderTracks(); }, {passive:true});
 
   BTN.play.addEventListener('click', ()=> A.paused?A.play():A.pause(), {passive:true});
