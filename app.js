@@ -133,7 +133,9 @@ async function loadById(id,{resume=true,autoplay=false}={}){ if(!id) return; let
   const blob=t.chunked?await loadBlobForTrack(t):t.blob; const url=URL.createObjectURL(blob); A.src=url;
   const prog=await get_('progress',id); const start=(resume&&prog)?prog.time:0;
   A.currentTime=start||0; setTitleText(t.name || '再生中');CUR.textContent=mmss(start||0); S.value='0'; DUR.textContent='--:--';
-  await put('meta',{key:META.LAST,value:id}); if(autoplay) A.play().catch(()=>{});
+  await put('meta',{key:META.LAST,value:id});
+  setSelectedTrackId(id);   // ← 追加（任意だけどオススメ）
+  if(autoplay) A.play().catch(()=>{});
 }
 async function playNext(delta){ const order=(await currentPlaylist()).trackIds; if(!order.length) return; const curId=(await get_('meta',META.LAST))?.value || order[0];
   let idx=Math.max(0,order.indexOf(curId)); idx=(idx+delta+order.length)%order.length; await loadById(order[idx],{resume:true,autoplay:true}); }
