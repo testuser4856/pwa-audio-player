@@ -4,7 +4,7 @@
 window.addEventListener('error', e=>{ alert('JSエラー: '+(e.error?.message||e.message)); });
 window.addEventListener('unhandledrejection', e=>{ alert('Promiseエラー: '+(e.reason?.message||e.reason)); });
 
-const DB='pwa-audio-db', VER=12; let db;
+const DB='pwa-audio-db', VER=13; let db;
 const STORES={tracks:{keyPath:'id'},progress:{keyPath:'id'},meta:{keyPath:'key'},playlists:{keyPath:'id'},chunks:{keyPath:'key'}};
 function openDB(){ return new Promise((res,rej)=>{ const r=indexedDB.open(DB,VER);
   r.onupgradeneeded=()=>{ const d=r.result; for(const[k,v] of Object.entries(STORES)){ if(!d.objectStoreNames.contains(k)) d.createObjectStore(k,v); } };
@@ -252,9 +252,50 @@ function showTitlePeek() {
   if (peekTid) clearTimeout(peekTid);
   peekTid = setTimeout(()=> { peek.hidden = true; }, 2500);
 }
+function setToast(msg){
+  const t = document.getElementById('netToast');
+  if(!t) return;
+  t.textContent = msg;
+  t.hidden = false;
+  clearTimeout(setToast._tid);
+  setToast._tid = setTimeout(()=>{ t.hidden = true; }, 2000);
+}
+
+async function updateNetUI(){
+  const badge = document.getElementById('netBadge');
+  if (!badge) return;
+
+  const online = navigator.onLine;
+  badge.classList.remove('online','offline','pwa');
+
+  // PWA(= SW制御下)かどうか
+  const isPWA = !!navigator.serviceWorker?.controller;
+  if (isPWA) badge.classList.add('pwa');
+
+  if (online){
+    badge.textContent = 'Online';
+    badge.classList.add('online');
+  }else{
+    badge.textContent = 'Offline';
+    badge.classList.add('offline');
+  }
+}
+
+function bindNetEvents(){
+  window.addEventListener('online',  ()=>{ updateNetUI(); setToast('オンラインになりました'); }, {passive:true});
+  window.addEventListener('offline', ()=>{ updateNetUI(); setToast('オフラインになりました'); }, {passive:true});
+
+  // SW の制御状態が変わったらバッジ更新
+  if (navigator.serviceWorker){
+    navigator.serviceWorker.addEventListener('controllerchange', updateNetUI, {passive:true});
+  }
+}
 
 (async function init(){
   await openDB();
+  bindNetEvents();
+  await updateNetUI();
+
   const ok=await idbSelfTest(); const persisted=await ensurePersistence(); const est=await (navigator.storage?.estimate?.()||Promise.resolve(null));
   console.log('IDB ok:',ok,'persisted:',persisted,'estimate:',est);
 
