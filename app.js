@@ -22,7 +22,11 @@ const openLib=document.getElementById('openLib'), sheet=document.getElementById(
 const picker=document.getElementById('picker'), tracksSel=document.getElementById('tracks'), playlistSel=document.getElementById('playlist');
 const up=document.getElementById('up'), down=document.getElementById('down'), rm=document.getElementById('rm'), rmLib=document.getElementById('rmLib'), playSel=document.getElementById('playSel');
 const sortSel=document.getElementById('sort'), rateLabel=document.getElementById('rateLabel');
+// iOS（PWA含む）検出
+const isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+           || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
+const tracksListDiv = document.getElementById('tracksList');  
 const META={ LAST:'last', LAST_PL:'lastPlaylist', SORT:'sort', RATE:'rate' };
 const VALL='_all';
 const mmss=s=>{ s=Math.max(0,Math.floor(s||0)); const m=Math.floor(s/60),r=s%60; return `${String(m).padStart(2,'0')}:${String(r).padStart(2,'0')}`; };
