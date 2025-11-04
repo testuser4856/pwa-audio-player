@@ -15,8 +15,7 @@
     .muted { color:#94a3b8; font-size:12px; }
     .row { display:flex; gap:8px; align-items:center; }
     .topbar { display:flex; gap:8px; align-items:center; justify-content:space-between; padding:10px; }
-    .mini { position: fixed; left:0; right:0; bottom:0; padding:10px 12px; background:#121212; border-top:1px solid #222;
-            display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center; padding-bottom:calc(12px + env(safe-area-inset-bottom)); }
+
     .title { font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .seek { width:100%; appearance:none; height:4px; border-radius:999px; background:#2a2a2a; }
     .controls { display:flex; gap:10px; align-items:center; }
@@ -24,15 +23,38 @@
     .panel { position:absolute; left:0; right:0; bottom:0; max-height:74vh; overflow:auto; background:#0e0e0e;
              border-top-left-radius:16px; border-top-right-radius:16px; padding:12px; border-top:1px solid #222; }
     .list { width:100%; height:40vh; background:#111; border:1px solid #222; border-radius:12px; color:#e5e7eb; }
-    /* 重要：タイトル側が横幅を食い尽くさないようにする */
-    .mini { grid-template-columns: minmax(0,1fr) auto; }   /* 1列目が縮められる */
-    .mini > div:first-child { min-width: 0; }              /* これが無いと省略が効かない */
+
+    /* ミニプレイヤーの左右配置：左=controls / 右=info */
+    .mini {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      grid-template-areas: "controls info";
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+      padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    }
+    .controls { grid-area: controls; display: flex; gap: 8px; align-items: center; }
+    #info     { grid-area: info;   min-width: 0; } /* これでタイトル省略が効く */
     
-    /* タイトルは常に1行省略。ボタン群に押し負けない */
+    /* タイトルは常に省略表示（ボタンが押し出されない） */
     .title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .mini { grid-template-columns: minmax(0,1fr) auto; }
-    .mini > div:first-child { min-width: 0; }
-    .controls { flex: 0 0 auto; }
+    
+    /* iOSのダブルタップズーム対策：ボタンは16px以上＆manipulation */
+    .btn {
+      font-size: 16px;                 /* 16px未満だとiOSがズームしがち */
+      touch-action: manipulation;      /* ダブルタップズームの抑制に効く */
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    
+    /* すごく狭い幅での詰め調整 */
+    @media (max-width: 380px) {
+      .controls { gap: 6px; }
+      .btn { padding: 6px 8px; border-radius: 10px; }
+      .mini { padding: 8px 10px; }
+    }
+
     
     /* タップで一時的に出す“ポップ表示” */
     .title-peek {
@@ -97,7 +119,8 @@
   </div>
 
   <div class="mini">
-    <div>
+    <!-- 情報（タイトル/シーク）ブロックにID付与 -->
+    <div id="info">
       <div id="title" class="title">（未選択）</div>
       <input id="seek" class="seek" type="range" min="0" max="1" value="0" step="0.001" />
       <div class="row" style="justify-content:space-between">
@@ -105,15 +128,19 @@
         <span id="dur" class="muted">00:00</span>
       </div>
     </div>
-    <!-- 既存の controls 内の ▶️/⏮/⏭ の前後に追加 -->
+  
+    <!-- ボタン群（10秒＋60秒） -->
     <div class="controls">
+      <button id="back60" class="btn">⏪ 60s</button>
       <button id="back10" class="btn">⏪ 10s</button>
-      <button id="prev" class="btn">⏮</button>
-      <button id="play" class="btn">▶️</button>
-      <button id="next" class="btn">⏭</button>
-      <button id="fwd10" class="btn">10s ⏩</button>
+      <button id="prev"   class="btn">⏮</button>
+      <button id="play"   class="btn">▶️</button>
+      <button id="next"   class="btn">⏭</button>
+      <button id="fwd10"  class="btn">10s ⏩</button>
+      <button id="fwd60"  class="btn">60s ⏩</button>
     </div>
   </div>
+
   <div id="titlePeek" class="title-peek" hidden></div>
 
   <!-- ライブラリ/プレイリストシート -->
