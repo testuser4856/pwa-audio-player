@@ -4,7 +4,7 @@
 window.addEventListener('error', e=>{ alert('JSエラー: '+(e.error?.message||e.message)); });
 window.addEventListener('unhandledrejection', e=>{ alert('Promiseエラー: '+(e.reason?.message||e.reason)); });
 
-const DB='pwa-audio-db', VER=10; let db;
+const DB='pwa-audio-db', VER=11; let db;
 const STORES={tracks:{keyPath:'id'},progress:{keyPath:'id'},meta:{keyPath:'key'},playlists:{keyPath:'id'},chunks:{keyPath:'key'}};
 function openDB(){ return new Promise((res,rej)=>{ const r=indexedDB.open(DB,VER);
   r.onupgradeneeded=()=>{ const d=r.result; for(const[k,v] of Object.entries(STORES)){ if(!d.objectStoreNames.contains(k)) d.createObjectStore(k,v); } };
@@ -352,10 +352,21 @@ function showTitlePeek() {
     el.addEventListener('pointerdown', ()=> el.classList.add('pause'), {passive:true});
     el.addEventListener('pointerup',   ()=> el.classList.remove('pause'), {passive:true});
   }
-  
+  function seekBy(sec){
+    const d = isFinite(A.duration) ? A.duration : 0;
+    if (!d) return;
+    let t = (A.currentTime || 0) + sec;
+    t = Math.max(0, Math.min(Math.max(0, d - 0.25), t)); // 終端誤爆防止
+    A.currentTime = t;
+  }
+
+  document.getElementById('back10')?.addEventListener('click', ()=> seekBy(-10), { passive:true });
+  document.getElementById('fwd10') ?.addEventListener('click', ()=> seekBy(+10), { passive:true });
+  document.getElementById('back60')?.addEventListener('click', ()=> seekBy(-60), { passive:true });
+  document.getElementById('fwd60') ?.addEventListener('click', ()=> seekBy(+60), { passive:true });
+
   // init() 内のイベント登録群に追加
-  document.getElementById('back10').addEventListener('click', ()=> seekBy(-10), {passive:true});
-  document.getElementById('fwd10').addEventListener('click', ()=> seekBy(+10), {passive:true});
+
   const last=(await get_('meta',META.LAST))?.value; if(last) await loadById(last,{resume:true});
 })().catch(err=>{ alert('初期化エラー: '+(err?.message||err)); });
 })();
