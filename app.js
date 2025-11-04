@@ -50,10 +50,71 @@ async function sortedLibIds(){ const list=[...(await all('tracks')), ...Array.fr
   return uniq.map(t=>t.id);
 }
 async function currentPlaylist(){ const id=playlistSel.value; if(id===VALL) return {id,name:'All',trackIds:await sortedLibIds()}; return (await get_('playlists',id))||{id,name:'(none)',trackIds:[]}; }
-async function renderTracks(){ const pl=await currentPlaylist(); const lib=[...(await all('tracks')), ...Array.from(memoryShadow.values())]; const byId=Object.fromEntries(lib.map(t=>[t.id,t]));
-  tracksSel.innerHTML=''; for(const id of pl.trackIds||[]){ const t=byId[id]; if(!t) continue; const o=document.createElement('option'); o.value=id; o.textContent=t.name; tracksSel.appendChild(o); }
-  if(!tracksSel.options.length){ const o=document.createElement('option'); o.value=''; o.textContent='（曲なし）'; tracksSel.appendChild(o); }
+async function renderTracks(){
+  const pl = await currentPlaylist();
+
+  // ライブラリ（DB＋影武者）を辞書化
+  const lib = [ ...(await all('tracks')), ...Array.from(memoryShadow.values()) ];
+  const byId = Object.fromEntries(lib.map(t => [t.id, t]));
+
+  // 直前の選択を記憶
+  const prevSel = getSelectedTrackId();
+
+  // --- 標準<select> をクリア・再描画 ---
+  tracksSel.innerHTML = '';
+  let count = 0;
+  for (const id of pl.trackIds || []) {
+    const t = byId[id]; if (!t) continue;
+    const o = document.createElement('option');
+    o.value = id; o.textContent = t.name;
+    tracksSel.appendChild(o);
+    count++;
+  }
+  if (!count) {
+    const o = document.createElement('option');
+    o.value = ''; o.textContent = '（曲なし）';
+    tracksSel.appendChild(o);
+  }
+
+  // --- iOS用 listbox をクリア・再描画 ---
+  tracksListDiv.innerHTML = '';
+  if (count) {
+    for (const id of pl.trackIds || []) {
+      const t = byId[id]; if (!t) continue;
+      const item = document.createElement('div');
+      item.className = 'listitem';
+      item.role = 'option';
+      item.dataset.id = id;
+      item.textContent = t.name;
+      item.addEventListener('click', ()=>{
+        setSelectedTrackId(id);
+      }, { passive: true });
+      item.addEventListener('dblclick', async ()=>{
+        await loadById(id, { resume: true, autoplay: true });
+      }, { passive: true });
+      tracksListDiv.appendChild(item);
+    }
+  } else {
+    const item = document.createElement('div');
+    item.className = 'listitem';
+    item.textContent = '（曲なし）';
+    tracksListDiv.appendChild(item);
+  }
+
+  // --- 表示切替（iOSはlistbox、PCは<select>） ---
+  if (isiOS) {
+    tracksListDiv.hidden = false;
+    tracksSel.hidden = true;
+  } else {
+    tracksListDiv.hidden = true;
+    tracksSel.hidden = false;
+  }
+
+  // 選択を復元（あれば）
+  if (prevSel) setSelectedTrackId(prevSel);
+  else if (count) setSelectedTrackId((pl.trackIds||[])[0]);
 }
+
 async function getImportTargetPlaylistId(){ const sel=playlistSel?.value; if(sel&&sel!==VALL) return sel;
   let last=(await get_('meta',META.LAST_PL))?.value; if(last) return last; const pls=await all('playlists'); if(pls.length) return pls[0].id;
   const p={id:`pl_${Date.now()}`,name:'My Playlist',trackIds:[],createdAt:Date.now()}; await put('playlists',p); await put('meta',{key:META.LAST_PL,value:p.id}); return p.id;
@@ -104,15 +165,34 @@ function applyRate(r){
   rateLabel.textContent = r.toFixed(2).replace(/\.00$/,'') + 'x';
 }
 
+function getSelectedTrackId(){
+  if (isiOS && !tracksListDiv.hidden) {
+    const cur = tracksListDiv.querySelector('.listitem.selected');
+    return cur?.dataset.id || '';
+  }
+  return tracksSel.value || '';
+}
+
+function setSelectedTrackId(id){
+  if (isiOS && !tracksListDiv.hidden) {
+    tracksListDiv.querySelectorAll('.listitem').forEach(el=>{
+      el.classList.toggle('selected', el.dataset.id === id);
+      if (el.dataset.id === id) el.setAttribute('aria-selected','true'); else el.removeAttribute('aria-selected');
+    });
+  } else {
+    tracksSel.value = id || '';
+  }
+}
+
 // 追加：任意秒数シーク（範囲安全化）
 function seekBy(sec){
-  const d = isFinite(A.duration) ? A.duration : 0;
-  if (!d) return;
-  let t = (A.currentTime || 0) + sec;
-  t = Math.max(0, Math.min(d - 0.25, t)); // 終端でended誤発を避けて少し手前に
-  A.currentTime = t;
+const d = isFinite(A.duration) ? A.duration : 0;
+if (!d) return;
+let t = (A.currentTime || 0) + sec;
+t = Math.max(0, Math.min(d - 0.25, t)); // 終端でended誤発を避けて少し手前に
+A.currentTime = t;
 }
-  
+
 async function importFiles(fileList){
   const files=Array.from(fileList).filter(isAudioFile); if(!files.length) return;
   const pid=await getImportTargetPlaylistId(); let pl=await get_('playlists',pid);
