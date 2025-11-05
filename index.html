@@ -124,10 +124,54 @@
       padding:10px 12px; border-radius:12px; box-shadow:0 6px 24px rgba(0,0,0,.35);
       text-align:center; pointer-events:none;
     }
+    /* 既定（PCなど広い画面）：左=controls / 右=info */
+    .mini {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      grid-template-areas: "controls info";
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+      padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    }
+    .controls { grid-area: controls; display: flex; gap: 8px; align-items: center; }
+    #info     { grid-area: info;   min-width: 0; } /* タイトル省略に必須 */
+    .title    { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    
+    /* ▼ 狭い画面（= iPhone想定）は上下2段：上=info / 下=controls */
+    @media (max-width: 480px) {
+      .mini {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto;
+        grid-template-areas:
+          "info"
+          "controls";
+        align-items: stretch;
+      }
+      #info { min-width: 0; }
+      .controls {
+        justify-content: space-between;
+        flex-wrap: wrap;          /* ボタンが多くても折り返して入る */
+        gap: 6px;
+      }
+      .btn {                      /* 誤ズーム抑制しつつ少し小さめに */
+        font-size: 16px;
+        padding: 6px 8px;
+        border-radius: 10px;
+        touch-action: manipulation;
+      }
+      .seek { margin-top: 4px; }  /* タイトル直下のスライダーに少し余白 */
+    }
+    
+    /* iOS専用の微調整（Safari判定に効くやつ） */
+    @supports (-webkit-touch-callout: none) {
+      .mini { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+    }
+    .controls { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
-  </style>
-</head>
-<body>
+      </style>
+    </head>
+    <body>
   <div class="topbar">
     <button id="openLib" class="btn">ライブラリ/PL</button>
     <div class="row" style="gap:10px; align-items:center">
