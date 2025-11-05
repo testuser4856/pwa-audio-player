@@ -4,7 +4,7 @@
 window.addEventListener('error', e=>{ alert('JSエラー: '+(e.error?.message||e.message)); });
 window.addEventListener('unhandledrejection', e=>{ alert('Promiseエラー: '+(e.reason?.message||e.reason)); });
 
-const DB='pwa-audio-db', VER=13; let db;
+const DB='pwa-audio-db', VER=14; let db;
 const STORES={tracks:{keyPath:'id'},progress:{keyPath:'id'},meta:{keyPath:'key'},playlists:{keyPath:'id'},chunks:{keyPath:'key'}};
 function openDB(){ return new Promise((res,rej)=>{ const r=indexedDB.open(DB,VER);
   r.onupgradeneeded=()=>{ const d=r.result; for(const[k,v] of Object.entries(STORES)){ if(!d.objectStoreNames.contains(k)) d.createObjectStore(k,v); } };
