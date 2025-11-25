@@ -4,7 +4,7 @@
 window.addEventListener('error', e=>{ alert('JSエラー: '+(e.error?.message||e.message)); });
 window.addEventListener('unhandledrejection', e=>{ alert('Promiseエラー: '+(e.reason?.message||e.reason)); });
 
-const DB='pwa-audio-db', VER=14; let db;
+const DB='pwa-audio-db', VER=15; let db;
 const STORES={tracks:{keyPath:'id'},progress:{keyPath:'id'},meta:{keyPath:'key'},playlists:{keyPath:'id'},chunks:{keyPath:'key'}};
 function openDB(){ return new Promise((res,rej)=>{ const r=indexedDB.open(DB,VER);
   r.onupgradeneeded=()=>{ const d=r.result; for(const[k,v] of Object.entries(STORES)){ if(!d.objectStoreNames.contains(k)) d.createObjectStore(k,v); } };
@@ -316,6 +316,13 @@ function bindNetEvents(){
     const p={id:`pl_${Date.now()}`,name,trackIds:[],createdAt:Date.now()}; await put('playlists',p); await put('meta',{key:META.LAST_PL,value:p.id});
     await renderPlaylists(); playlistSel.value=p.id; await renderTracks();
   });
+    // プレイリスト切り替えで表示を更新＋最後に選んだPLを記憶
+  playlistSel.addEventListener('change', async () => {
+    await put('meta', { key: META.LAST_PL, value: playlistSel.value });
+    await renderTracks();       // ← これが無いと中身が変わらない
+    await rebuildQueue();       // 再生順の整合
+  }, { passive: true });
+
   document.getElementById('renPl').addEventListener('click', async ()=>{ const id=playlistSel.value; if(id===VALL) return;
     const p=await get_('playlists',id); const name=prompt('新しい名前？',p.name); if(!name) return; p.name=name; await put('playlists',p); await renderPlaylists(); playlistSel.value=id;
   });
