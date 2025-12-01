@@ -4,7 +4,7 @@
 window.addEventListener('error', e=>{ alert('JSエラー: '+(e.error?.message||e.message)); });
 window.addEventListener('unhandledrejection', e=>{ alert('Promiseエラー: '+(e.reason?.message||e.reason)); });
 
-const DB='pwa-audio-db', VER=15; let db;
+const DB='pwa-audio-db', VER=16; let db;
 const STORES={tracks:{keyPath:'id'},progress:{keyPath:'id'},meta:{keyPath:'key'},playlists:{keyPath:'id'},chunks:{keyPath:'key'}};
 function openDB(){ return new Promise((res,rej)=>{ const r=indexedDB.open(DB,VER);
   r.onupgradeneeded=()=>{ const d=r.result; for(const[k,v] of Object.entries(STORES)){ if(!d.objectStoreNames.contains(k)) d.createObjectStore(k,v); } };
@@ -398,6 +398,35 @@ function bindNetEvents(){
     t = Math.max(0, Math.min(Math.max(0, d - 0.25), t)); // 終端誤爆防止
     A.currentTime = t;
   }
+  
+  document.getElementById('resetProg').addEventListener('click', async () => {
+    const pl = await currentPlaylist();
+    const ids = pl.trackIds || [];
+  
+    if (!ids.length) {
+      alert('このプレイリストには曲がありません。');
+      return;
+    }
+  
+    const name = pl.id === VALL ? 'All Tracks に含まれる全曲' : `プレイリスト「${pl.name}」`;
+    if (!confirm(`${name} の再生位置をリセットしますか？`)) return;
+  
+    // 各曲のprogressを削除
+    for (const id of ids) {
+      await del_('progress', id).catch(()=>{});
+    }
+  
+    // 今再生中の曲がこのPLに含まれていたら、UIも頭に戻しておく
+    const lastMeta = await get_('meta', META.LAST);
+    const lastId = lastMeta?.value;
+    if (lastId && ids.includes(lastId)) {
+      A.currentTime = 0;
+      S.value = '0';
+      CUR.textContent = '00:00';
+    }
+  
+    alert(`${name} の再生位置をリセットしました。`);
+  }, { passive: true });
 
   document.getElementById('back10')?.addEventListener('click', ()=> seekBy(-10), { passive:true });
   document.getElementById('fwd10') ?.addEventListener('click', ()=> seekBy(+10), { passive:true });
